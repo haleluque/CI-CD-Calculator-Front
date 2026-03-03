@@ -1,5 +1,5 @@
 # GitHub Actions workflow – React/Vite frontend
-# Jobs: build, then lint / test / security (each depends on build)
+# Jobs: build, lint, test, security; deploy to GitHub Pages only on push when all pass
 name: CI/CD
 
 # Trigger workflow on push and pull request events against master branch
@@ -9,6 +9,15 @@ on:
     branches: ["master", "main"]
   pull_request:
     branches: ["master", "main"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -73,3 +82,32 @@ jobs:
           ignore-unfixed: true
           # Only show critical and high vulnerabilities
           severity: "CRITICAL,HIGH"
+
+  # Deploy to GitHub Pages only on push to main/master after all checks pass
+  deploy-pages:
+    needs: [build, lint, test, security]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare Action
+        uses: ./.github/workflows/prepareAction
+
+      - name: Build for GitHub Pages
+        run: npm run build
+        env:
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_API_URL: https://ci-cd-calculator-latest.onrender.com
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
