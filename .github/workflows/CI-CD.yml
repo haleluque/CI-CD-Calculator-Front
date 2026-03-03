@@ -2,6 +2,8 @@
 # Jobs: build, then lint / test / security (each depends on build)
 name: CI/CD
 
+# Trigger workflow on push and pull request events against master branch
+# All jobs have repeteated steps, which are: prepare environment (re usable action)
 on:
   push:
     branches: ["master", "main"]
@@ -17,9 +19,11 @@ jobs:
       - name: Prepare Action
         uses: ./.github/workflows/prepareAction
 
+      # Build the project
       - name: Build
         run: npm run build
 
+      # Upload the build artifact
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -35,6 +39,7 @@ jobs:
       - name: Prepare Action
         uses: ./.github/workflows/prepareAction
 
+      # Run Linting
       - name: Run Linting
         run: npm run lint
 
@@ -47,6 +52,7 @@ jobs:
       - name: Prepare Action
         uses: ./.github/workflows/prepareAction
 
+      # Run Tests
       - name: Run Tests
         run: npm run test
 
@@ -56,6 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Run Trivy vulnerability scanner to check for vulnerabilities
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -64,4 +71,5 @@ jobs:
           format: "table"
           exit-code: "1"
           ignore-unfixed: true
+          # Only show critical and high vulnerabilities
           severity: "CRITICAL,HIGH"
